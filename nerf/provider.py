@@ -176,6 +176,8 @@ class NeRFDataset(Dataset):
         self.lms = []
 
         flame_model = FlameHead(300, 100)
+        extra_max = None
+        extra_min = None
 
         for f_id in range(self.num_frames):
             if (self.type == "train") or (self.type == "valid"):
@@ -262,7 +264,24 @@ class NeRFDataset(Dataset):
             # Add eyes pose to expression
             maybe_eyes_pose = [fp["eyes_pose"]] if self.eyes_pose_to_expr else []
             exp_code = maybe_neck_pose + maybe_eyes_pose + [fp["jaw_pose"], fp["expr"]]
-            exp_code = np.concatenate(exp_code, axis=1)[0].tolist()
+            exp_code = np.concatenate(exp_code, axis=1)[0].tolist()[: self.basis_num]
+
+            # For the new components we are adding to expression, we need to keep track of the max, min
+            # And later we will add these elements to self.maxper and self.minper
+            new_max = np.concatenate(
+                maybe_neck_pose + maybe_eyes_pose + [fp["jaw_pose"]], axis=1
+            )[0]
+            if extra_max is None:
+                extra_max = new_max
+            else:
+                extra_max = np.maximum(extra_max, new_max)
+            new_min = np.concatenate(
+                maybe_neck_pose + maybe_eyes_pose + [fp["jaw_pose"]], axis=1
+            )[0]
+            if extra_min is None:
+                extra_min = new_min
+            else:
+                extra_min = np.minimum(extra_min, new_min)
 
             if add_mean == True:
                 exp_code.insert(0, 1.0)
@@ -279,6 +298,8 @@ class NeRFDataset(Dataset):
             self.lms.append(lms)
             if mask_path is not None:
                 self.mask_paths_list.append(mask_path)
+
+        self.load_max(max_path, min_path, extra_max=extra_max, extra_min=extra_min)
 
         # print(self.poses)
         self.poses = np.stack(self.poses, axis=0).astype(np.float32)
@@ -327,7 +348,10 @@ class NeRFDataset(Dataset):
                 if parsing_path is None:
                     # we have masks, load them up
                     mask_path = self.mask_paths_list[index]
-                    mask = cv2.imread(os.path.join(self.root_exp, frames_img[index]["fg_mask_path"]), cv2.IMREAD_UNCHANGED)
+                    mask = cv2.imread(
+                        os.path.join(self.root_exp, frames_img[index]["fg_mask_path"]),
+                        cv2.IMREAD_UNCHANGED,
+                    )
                     mask = mask > 200
                 else:
                     seg = cv2.imread(
@@ -542,20 +566,27 @@ class NeRFDataset(Dataset):
 
         return rect, rect_sp, rect_sp2
 
-    def load_max(self, max_path, min_path):
+    def load_max(self, max_path, min_path, extra_max=None, extra_min=None):
+        maxper = np.loadtxt(max_path)
+        if extra_max is not None:
+            maxper = np.concatenate([extra_max, maxper], axis=0)
         self.max_per = (
-            torch.from_numpy(np.loadtxt(max_path)).to(dtype=torch.float16).cuda()
+            torch.from_numpy(maxper)[: self.basis_num].to(dtype=torch.float16).cuda()
         )
+        # self.load_max(max_path, min_path, extra_max=extra_max, extra_min=extra_min)
         if self.add_mean:
             self.max_per = torch.cat([torch.ones([1]).cuda(), self.max_per], dim=0)
 
-        print("load max_per successfully:max_per is :")
+        print(f"load max_per successfully (shape = {self.max_per.shape}):")
         print(self.max_per)
 
+        minper = np.loadtxt(min_path)
+        if extra_min is not None:
+            minper = np.concatenate([extra_min, minper], axis=0)
         self.min_per = (
-            torch.from_numpy(np.loadtxt(min_path)).to(dtype=torch.float16).cuda()
+            torch.from_numpy(minper)[: self.basis_num].to(dtype=torch.float16).cuda()
         )
         if self.add_mean:
             self.min_per = torch.cat([torch.ones([1]).cuda(), self.min_per], dim=0)
-        print("load min_per successfully:min_per is :")
+        print(f"load min_per successfully (shape = {self.min_per.shape}):")
         print(self.min_per)
