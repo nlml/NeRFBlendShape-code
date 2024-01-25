@@ -331,10 +331,13 @@ class Trainer(object):
         intrinsics = data["intrinsic"]
         exps = data["exp"]
         mask = data["mask"]
-        if if_mouth == True and lpips_flag == True:
-            rect = data["rects_mouth"]
+        if 'rects' not in data and 'rects_mouth' not in data:
+            rect = None
         else:
-            rect = data["rects"]
+            if if_mouth == True and lpips_flag == True:
+                rect = data["rects_mouth"]
+            else:
+                rect = data["rects"]
         index = data["index"]
 
         # sample rays
