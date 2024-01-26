@@ -1,0 +1,74 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Create NS transforms",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/home/user/code",
+            "program": "create_nersemble_transforms_json.py",
+            "args": [
+                "--dataset_path", "/data/cvpr2024/point_avatar/data/datasets/306/UNION_306_EMO1234EXP234589_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine/"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Test",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/home/user/code",
+            "program": "run_nerfblendshape.py",
+            "args": [
+                "--data_folder", "/data/cvpr2024/point_avatar/data/datasets/104/UNION_104_EMO1234EXP234589_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine/",
+                "--workspace", "/data/nerfblendshape/trial_nerfblendshape/104",
+                "--fp16", "--tcnn", "--cuda_ray", 
+                "--basis_num", "46",
+                "--add_mean", "--use_lpips", 
+                "--mode", "test",
+                "--to_mem"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Normal Test",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/home/user/code",
+            "program": "run_nerfblendshape.py",
+            "args": [
+                "--data_folder", "/data/cvpr2024/point_avatar/data/datasets/104/UNION_104_EMO1234EXP234589_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine/",
+                "--workspace", "/data/nerfblendshape/trial_nerfblendshape/104",
+                "--fp16", "--tcnn", "--cuda_ray", 
+                "--basis_num", "46",
+                "--add_mean", "--use_lpips", 
+                "--mode", "normal_test",
+                "--to_mem"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Val",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/home/user/code",
+            "program": "run_nerfblendshape.py",
+            "args": [
+                "--data_folder", "/data/cvpr2024/point_avatar/data/datasets/104/UNION_104_EMO1234EXP234589_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine/",
+                "--workspace", "/data/nerfblendshape/trial_nerfblendshape/104",
+                "--fp16", "--tcnn", "--cuda_ray", 
+                "--basis_num", "46",
+                "--add_mean", "--use_lpips", 
+                "--mode", "val",
+                "--to_mem"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

@@ -2,6 +2,7 @@ from operator import index
 import os
 import time
 import glob
+from typing import Literal
 import numpy as np
 from copy import deepcopy
 
@@ -37,18 +38,15 @@ def nerf_matrix_to_ngp(pose, scale=0.33):
 class NeRFDataset(Dataset):
     def __init__(
         self,
-        img_idpath,
-        exp_idpath,
-        pose_idpath,
-        intr_idpath,
+        data_folder,
         basis_num,
-        type="train",
+        type:Literal['train', 'val', 'test', 'normal_test']="train",
         downscale=1,
+        downsample=1,
         test_basis_inter=1,
         add_mean=False,
         to_mem=False,
         rot_cycle=100,
-        test_start=None,
         apply_neck_rot_to_flame_pose=True,
         apply_flame_poses_to_cams=True,
         neck_pose_to_expr=False,
@@ -61,159 +59,79 @@ class NeRFDataset(Dataset):
         self.eyes_pose_to_expr = eyes_pose_to_expr
 
         # path: the json file path.
-        self.img_idpath = img_idpath
-        self.exp_idpath = exp_idpath
-        self.pose_idpath = pose_idpath
-        self.intr_idpath = intr_idpath
+        self.data_folder = data_folder
         self.basis_num = basis_num
         self.add_mean = add_mean
-        self.root_img = os.path.dirname(img_idpath)
-        self.root_exp = os.path.dirname(exp_idpath)
         self.type = type
         self.downscale = downscale
         self.to_mem = to_mem
         self.test_basis_inter = test_basis_inter
         max_path = os.path.join(
-            os.path.dirname(self.img_idpath), f"max_{self.basis_num}.txt"
+            self.data_folder, f"max_{self.basis_num}.txt"
         )
         min_path = os.path.join(
-            os.path.dirname(self.img_idpath), f"min_{self.basis_num}.txt"
+            self.data_folder, f"min_{self.basis_num}.txt"
         )
         self.load_max(max_path, min_path)
-        self.test_start = test_start
 
         # load nerf-compatible format data.
-        with open(img_idpath, "r") as f:
-            transform_img = json.load(f)
+        transform_file = f'transforms_nb_{type}.json' if type != 'normal_test' else 'transforms_nb_test.json'
+        with open(os.path.join(self.data_folder, transform_file), "r") as f:
+            transform_data = json.load(f)
 
-        with open(exp_idpath, "r") as f:
-            transform_exp = json.load(f)
+        self.bc_img = np.ones([transform_data["h"], transform_data["w"], 3]).astype(
+            np.float32
+        )
 
-        with open(pose_idpath, "r") as f:
-            transform_pose = json.load(f)
-
-        with open(intr_idpath, "r") as f:
-            transform_intr = json.load(f)
-
-        if False:
-            self.bc_img_path = os.path.join(self.root_img, "bc.jpg")
-            self.bc_img = cv2.cvtColor(
-                cv2.imread(self.bc_img_path, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB
-            )
-            self.bc_img = self.bc_img.astype(np.float32) / 255
-        else:
-            self.bc_img = np.ones([transform_img["h"], transform_img["w"], 3]).astype(
-                np.float32
-            )
-
-        # load image size
-        self.H = int(transform_img["h"]) // downscale
-        self.W = int(transform_img["w"]) // downscale
-
-        # load intrinsics
-        self.intrinsic = np.eye(3, dtype=np.float32)
-        transform_intr["fx"] = transform_intr["fl_x"]
-        transform_intr["fy"] = transform_intr["fl_y"]
-        self.intrinsic[0, 0] = transform_intr["fx"] / downscale
-        self.intrinsic[1, 1] = transform_intr["fy"] / downscale
-        self.intrinsic[0, 2] = transform_intr["cx"] / downscale
-        self.intrinsic[1, 2] = transform_intr["cy"] / downscale
-
-        frames_img = transform_img["frames"]
-        # frames_img = sorted(frames_img, key=lambda d: d["img_id"])
-        frames_exp = transform_exp["frames"]
-        # frames_exp = sorted(frames_exp, key=lambda d: d["img_id"])
-        frames_pose = transform_pose["frames"]
-        # frames_pose = sorted(frames_pose, key=lambda d: d["img_id"])
-
-        if type == "train":
-
-            def get_train_frames(frames):
-                if test_start != None:
-                    out_frames = frames[0 : self.test_start]
-                else:
-                    out_frames = frames[0:-500]
-                return out_frames
-
-            frames_img = get_train_frames(frames_img)
-            frames_exp = get_train_frames(frames_exp)
-            frames_pose = get_train_frames(frames_pose)
-            assert len(frames_img) == len(frames_exp) and len(frames_img) == len(
-                frames_pose
-            )
-        elif type == "valid":
-            if test_start != None:
-                frames_img = frames_img[self.test_start :: 70]
-                frames_exp = frames_exp[self.test_start :: 70]
-                frames_pose = frames_pose[self.test_start :: 70]
-                print(len(frames_img))
-            else:
-                frames_img = frames_img[-500::70]
-                frames_exp = frames_exp[-500::70]
-                frames_pose = frames_pose[-500::70]
-            assert len(frames_img) == len(frames_exp) and len(frames_img) == len(
-                frames_pose
-            )
-        elif type == "normal_test":
-            if test_start != None:
-                frames_img = frames_img[self.test_start :]
-                frames_exp = frames_exp[self.test_start :]
-                frames_pose = frames_pose[self.test_start :]
-            else:
-                frames_img = frames_img[-500:]
-                frames_exp = frames_exp[-500:]
-                frames_pose = frames_pose[-500:]
-        else:
-            frames_pose = frames_pose[:]
-
-        self.num_frames = len(frames_exp)
-
+        self.H = int(transform_data["h"]) // downscale
+        self.W = int(transform_data["w"]) // downscale
+        self.intrinsics = []
         self.poses = []
         self.images_list = []
         self.mask_paths_list = []
         self.exps = []
         self.parsings = []
         self.lms = []
-
         flame_model = FlameHead(300, 100)
         extra_max = None
         extra_min = None
 
-        for f_id in range(self.num_frames):
-            if (self.type == "train") or (self.type == "valid"):
-                f_path = os.path.join(self.root_img, frames_img[f_id]["file_path"])
+        frames = transform_data['frames'][::downsample]
+        self.num_frames = len(frames)
+        for frame in frames:
+            # load image size
+
+            # load intrinsics
+            intrinsic = np.eye(3, dtype=np.float32)
+            intrinsic[0, 0] = transform_data["fl_x"] / downscale
+            intrinsic[1, 1] = transform_data["fl_y"] / downscale
+            intrinsic[0, 2] = transform_data["cx"] / downscale
+            intrinsic[1, 2] = transform_data["cy"] / downscale
+            self.intrinsics.append(intrinsic)
+
+            img_path = os.path.join(self.data_folder, frame["file_path"])
                 # f_path = os.path.join(
                 #     self.root_img, "head_imgs", str(frames_img[f_id]["img_id"]) + ".jpg"
                 # )
-                parsing_path = None
+            parsing_path = None
                 # parsing_path = os.path.join(
                 #     self.root_img, "parsing", str(frames_img[f_id]["img_id"]) + ".png"
                 # )
-                lms_path = None
+            lms_path = None
                 # lms_path = os.path.join(
                 #     self.root_img, "ori_imgs", str(frames_img[f_id]["img_id"]) + ".lms"
                 # )
-            if self.type == "normal_test":
-                f_path = os.path.join(
-                    self.root_exp, "ori_imgs", str(frames_exp[f_id]["img_id"]) + ".jpg"
-                )
-                parsing_path = os.path.join(
-                    self.root_exp, "parsing", str(frames_exp[f_id]["img_id"]) + ".png"
-                )
-                lms_path = os.path.join(
-                    self.root_exp, "ori_imgs", str(frames_exp[f_id]["img_id"]) + ".lms"
-                )
-            if not os.path.exists(f_path):
-                continue
+            
+            assert os.path.exists(img_path)
 
-            pose = np.array(
-                frames_pose[f_id]["transform_matrix"], dtype=np.float32
+            camera_pose = np.array(
+                frame["transform_matrix"], dtype=np.float32
             )  # [4, 4]
             # Here we should also apply the FLAME rotation to the pose.
 
-            mask_path = os.path.join(self.root_img, frames_img[f_id]["fg_mask_path"])
+            mask_path = os.path.join(self.data_folder, frame["fg_mask_path"])
             flame_param_fname = os.path.join(
-                self.root_img, frames_img[f_id]["flame_param_path"]
+                self.data_folder, frame["flame_param_path"]
             )
             fp = np.load(flame_param_fname)
             R = _so3_exp_map(torch.from_numpy(fp["rotation"]).float())[0]  # [3, 3]
@@ -247,14 +165,14 @@ class NeRFDataset(Dataset):
                 Rflameinv[:3, :3] = R.T
                 Rflameinv[:3, 3] = -Rflameinv[:3, :3] @ T
                 # Shift the camera by the inverse flame pose
-                Rcam = torch.from_numpy(pose)
-                pose = (Rflameinv @ Rcam)[:3]
+                Rcam = torch.from_numpy(camera_pose)
+                camera_pose = (Rflameinv @ Rcam)[:3]
                 # Set the flame pose to identity since it has been applied to the camera
                 R = torch.eye(3, dtype=torch.float32)
                 T = torch.zeros(3, 1, dtype=torch.float32)
-                pose = pose.numpy()
+                camera_pose = camera_pose.numpy()
 
-            pose = nerf_matrix_to_ngp(pose)
+            camera_pose = nerf_matrix_to_ngp(camera_pose)
 
             # Adding neck pose and eye pose to expression
             if not self.neck_pose_to_expr or self.apply_neck_rot_to_flame_pose:
@@ -291,8 +209,8 @@ class NeRFDataset(Dataset):
             else:
                 lms = None
 
-            self.poses.append(pose)
-            self.images_list.append(f_path)
+            self.poses.append(camera_pose)
+            self.images_list.append(img_path)
             self.exps.append(exp)
             self.parsings.append(parsing_path)
             self.lms.append(lms)
@@ -326,13 +244,13 @@ class NeRFDataset(Dataset):
         else:
             self.rects, self.rects_mouth, self.rects_eyes = None, None, None
 
-        if self.to_mem == True and (self.type == "train" or self.type == "valid"):
+        if self.to_mem == True and self.type!= 'normal_test':
             self.mem_images = []
             self.mem_masks = []
             for index in range(self.num_frames):
-                f_path = self.images_list[index]
+                img_path = self.images_list[index]
                 image = cv2.imread(
-                    f_path, cv2.IMREAD_UNCHANGED
+                    img_path, cv2.IMREAD_UNCHANGED
                 )  # [H, W, 3] o [H, W, 4]
                 if image.shape[-1] == 3:
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -349,7 +267,7 @@ class NeRFDataset(Dataset):
                     # we have masks, load them up
                     mask_path = self.mask_paths_list[index]
                     mask = cv2.imread(
-                        os.path.join(self.root_exp, frames_img[index]["fg_mask_path"]),
+                        os.path.join(self.data_folder, self.mask_paths_list[index]),
                         cv2.IMREAD_UNCHANGED,
                     )
                     mask = mask > 200
@@ -370,7 +288,7 @@ class NeRFDataset(Dataset):
                         * (seg[:, :, 2] == 255)
                     )
                 self.mem_masks.append(mask)
-            return
+            
 
         if self.type == "normal_test":
             self.poses_l1 = []
@@ -394,14 +312,15 @@ class NeRFDataset(Dataset):
     def __getitem__(self, index):
         results = {
             "pose": self.poses[index],
-            "intrinsic": self.intrinsic,
+            "intrinsic": self.intrinsics[index],
             "index": index,
             "exp": self.exps[index],
+            "image_name": self.images_list[index].split('/')[-1]
         }
         results["H"] = str(self.H)
         results["W"] = str(self.W)
 
-        if self.to_mem == False and (self.type == "train" or self.type == "valid"):
+        if self.to_mem == False and self.type!='normal_test':
             if self.rects is not None:
                 results["rects"] = self.rects[index]
                 results["rects_mouth"] = self.rects_mouth[index]
@@ -428,7 +347,7 @@ class NeRFDataset(Dataset):
             mask = (seg[:, :, 0] == 0) * (seg[:, :, 1] == 0) * (seg[:, :, 2] == 255)
             results["mask"] = mask
             return results
-        elif self.to_mem == True and (self.type == "train" or self.type == "valid"):
+        elif self.to_mem == True and self.type!='normal_test':
             if self.rects is not None:
                 results["rects"] = self.rects[index]
                 results["rects_mouth"] = self.rects_mouth[index]

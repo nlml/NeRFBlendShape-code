@@ -8,10 +8,7 @@ import shutil
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--img_idpath", type=str)
-    parser.add_argument("--exp_idpath", type=str)
-    parser.add_argument("--pose_idpath", type=str)
-    parser.add_argument("--intr_idpath", type=str)
+    parser.add_argument("--data_folder", type=str)
     parser.add_argument("--use_checkpoint", type=str, default="latest")
     parser.add_argument("--mode", type=str, default="train")
     parser.add_argument("--to_mem", action="store_true")
@@ -45,7 +42,6 @@ if __name__ == "__main__":
     parser.add_argument("--geo_feat_dim", type=int, default=64)
     parser.add_argument("--num_layers_col", type=int, default=1)
     parser.add_argument("--hidden_dim_col", type=int, default=64)
-    parser.add_argument("--test_start", type=int, default=-500)
 
     opt = parser.parse_args()
 
@@ -60,15 +56,11 @@ if __name__ == "__main__":
         model_basis_num = opt.basis_num
 
     dataset = NeRFDataset(
-        opt.img_idpath,
-        opt.exp_idpath,
-        opt.pose_idpath,
-        opt.intr_idpath,
+        opt.data_folder,
         type=opt.mode,
         add_mean=opt.add_mean,
         basis_num=opt.basis_num,
         to_mem=opt.to_mem,
-        test_start=opt.test_start,
     )
 
     model = NeRFNetwork(
@@ -88,16 +80,13 @@ if __name__ == "__main__":
 
     if opt.mode == "train":
         valid_dataset = NeRFDataset(
-            opt.img_idpath,
-            opt.exp_idpath,
-            opt.pose_idpath,
-            opt.intr_idpath,
-            type="valid",
+            opt.data_folder,
+            type="val",
+            downsample=50,
             downscale=1,
             add_mean=opt.add_mean,
             basis_num=opt.basis_num,
-            to_mem=opt.to_mem,
-            test_start=opt.test_start,
+            to_mem=opt.to_mem
         )
 
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True)
@@ -165,14 +154,14 @@ if __name__ == "__main__":
             valid_loader,
             200,
             max_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"max_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"min_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
             ),
         )
 
-    elif opt.mode == "normal_test":
+    elif opt.mode == "test" or opt.mode =="val":
         trainer = Trainer(
             "ngp",
             vars(opt),
@@ -186,11 +175,12 @@ if __name__ == "__main__":
         trainer.test(
             test_loader,
             max_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"max_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"min_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
             ),
+            save_path=os.path.join(opt.workspace, opt.mode)
         )
         exit()
     else:
@@ -207,10 +197,11 @@ if __name__ == "__main__":
         trainer.test(
             test_loader,
             max_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"max_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.img_idpath), f"min_{opt.basis_num}.txt"
+                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
             ),
+            save_path=os.path.join(opt.workspace, 'free_cam')
         )
         exit()

@@ -1,23 +1,20 @@
-export FLAME_PATH=/home/liam-schoneveld/gaussian_avatars_wrk/flame_model/assets/flame
-DATA_PATH=./dataset
+export FLAME_PATH=/home/user/code/nerf/flame/assets/flame
 
-NAME=$1
-GPUID=$2
+DATA_PATH=$1
+OUTFOLDER=$2
+GPUID=$3
+
 BASIS_NUM=46
 
-python create_nersemble_transforms_json.py --dataset_path $DATA_PATH/$NAME
+python create_nersemble_transforms_json.py --dataset_path $DATA_PATH
 TEST_START=$(cat /tmp/len_val)
 
 # echo "BASIS_NUM = $BASIS_NUM"
 echo "TEST_START = $TEST_START"
 
-python get_max.py --path $DATA_PATH/$NAME/transforms.json --test_start $TEST_START --num $BASIS_NUM
+python get_max.py --path $DATA_PATH/transforms_nb_train.json --test_start $TEST_START --num $BASIS_NUM
 
 CUDA_VISIBLE_DEVICES=$GPUID python run_nerfblendshape.py\
-    --img_idpath $DATA_PATH/$NAME/transforms.json \
-    --exp_idpath $DATA_PATH/$NAME/transforms.json \
-    --pose_idpath $DATA_PATH/$NAME/transforms.json \
-    --intr_idpath $DATA_PATH/$NAME/transforms.json \
-    --workspace trial_nerfblendshape_$NAME\
-    --test_start $TEST_START\
+    --data_folder $DATA_PATH
+    --workspace /data/nerfblendshape/trial_nerfblendshape/$OUTFOLDER\
     --fp16 --tcnn  --cuda_ray --basis_num $BASIS_NUM   --add_mean  --use_lpips   --mode train --to_mem

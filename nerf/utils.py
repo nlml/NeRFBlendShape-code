@@ -4,6 +4,7 @@ import tqdm
 import random
 import warnings
 import tensorboardX
+import json
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,8 @@ from torch_ema import ExponentialMovingAverage
 
 import lpips
 import ipdb
+
+from metrics.gs_metrics import Metrics
 
 
 def seed_everything(seed):
@@ -244,6 +247,7 @@ class Trainer(object):
                 f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu"
             )
         )
+        self.metric_logger = Metrics(self.device)
         self.console = Console()
         self.bc_img = torch.from_numpy(bc_img).to(self.device)
 
@@ -512,11 +516,22 @@ class Trainer(object):
         with torch.no_grad():
             for i, data in enumerate(loader):
                 data = self.prepare_data(data)
-                with torch.cuda.amp.autocast(enabled=self.fp16):
-                    preds, preds_depth = self.test_step(data)
-                path = os.path.join(save_path, f"{i:04d}.png")
-                preds = preds.reshape([-1, int(data["H"][0]), int(data["W"][0]), 3])
-                print(path)
+                if self.conf["mode"] == "normal_test":
+                    data["pose"] = data["pose_l1"]
+                    with torch.cuda.amp.autocast(enabled=self.fp16):
+                        preds, preds_depth = self.test_step(data)
+                    path = os.path.join(save_path, f"{i:04d}_nvs.png")
+                    preds = preds.reshape([-1, int(data["H"][0]), int(data["W"][0]), 3])
+                else:
+                    with torch.cuda.amp.autocast(enabled=self.fp16):
+                        preds, preds_depth = self.test_step(data)
+                    image_name = data['image_name'][0] if 'image_name' in data else f'{i:05d}'
+                    path = os.path.join(save_path, image_name)
+                    preds = preds.reshape([-1, int(data["H"][0]), int(data["W"][0]), 3])
+                    if 'image' in data:
+                        self.metric_logger.compute_metrics(preds, data['image'])
+                    print(path)
+                
                 cv2.imwrite(
                     path,
                     cv2.cvtColor(
@@ -525,22 +540,12 @@ class Trainer(object):
                     ),
                 )
 
-                if self.conf["mode"] == "normal_test":
-                    data["pose"] = data["pose_l1"]
-                    with torch.cuda.amp.autocast(enabled=self.fp16):
-                        preds, preds_depth = self.test_step(data)
-                    path = os.path.join(save_path, f"{i:04d}_nvs.png")
-                    preds = preds.reshape([-1, int(data["H"][0]), int(data["W"][0]), 3])
-                    cv2.imwrite(
-                        path,
-                        cv2.cvtColor(
-                            (preds[0].detach().cpu().numpy() * 255).astype(np.uint8),
-                            cv2.COLOR_RGB2BGR,
-                        ),
-                    )
-
                 pbar.update(loader.batch_size)
-
+        metrics = self.metric_logger.get_accumulated_metrics()
+        self.metric_logger.clean()
+        with open(os.path.join(save_path, 'metrics.json'), 'w') as f:
+            json.dump(metrics, f)
+        self.log(metrics)
         self.log(f"==> Finished Test.")
 
     def prepare_data(self, data):
@@ -768,7 +773,7 @@ class Trainer(object):
 
         state["model"] = self.model.state_dict()
 
-        file_path = f"{self.ckpt_path}/{self.name}_{int(self.global_step):04d}.pth.tar"
+        file_path = f"{self.ckpt_path}/{self.name}_{int(self.global_step):12d}.pth.tar"
 
         torch.save(state, file_path)
 
@@ -777,6 +782,8 @@ class Trainer(object):
             checkpoint_list = sorted(
                 glob.glob(f"{self.ckpt_path}/{self.name}_*.pth.tar")
             )
+            ckpt_indexes = [int(s.split('/')[-1].split('.')[0].split('_')[1]) for s in checkpoint_list]
+            checkpoint_list, _ = zip(*sorted(zip(checkpoint_list, ckpt_indexes), key=lambda x: x[1])) # order checkpoint_list by ckpt_indexes
             if checkpoint_list:
                 checkpoint = checkpoint_list[-1]
                 self.log(f"[INFO] Latest checkpoint is {checkpoint}")
