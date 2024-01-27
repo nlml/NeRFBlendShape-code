@@ -138,8 +138,8 @@ class NeRFDataset(Dataset):
             T = torch.from_numpy(fp["translation"]).float()[0]  # [3,]
 
             if self.apply_neck_rot_to_flame_pose:
-                neck_rot = _so3_exp_map(torch.from_numpy(fp["neck_pose"]).float())[0]
-                R = R @ neck_rot
+                # neck_rot = _so3_exp_map(torch.from_numpy(fp["neck_pose"]).float())[0]
+                # R = R @ neck_rot
 
                 verts, posed_joints, landmarks = flame_model(
                     torch.tensor(fp["shape"][None, ...]).float(),
@@ -175,7 +175,7 @@ class NeRFDataset(Dataset):
             camera_pose = nerf_matrix_to_ngp(camera_pose)
 
             # Adding neck pose and eye pose to expression
-            if not self.neck_pose_to_expr or self.apply_neck_rot_to_flame_pose:
+            if not self.neck_pose_to_expr:
                 maybe_neck_pose = []
             else:
                 maybe_neck_pose = [fp["neck_pose"]]
@@ -293,7 +293,7 @@ class NeRFDataset(Dataset):
         if self.type == "normal_test":
             self.poses_l1 = []
 
-            vec = np.array([0, 0, 0.3493212163448334])
+            vec = np.array([0, 0, 1])
             for i in range(self.num_frames):
                 tmp_pose = np.identity(4, dtype=np.float32)
                 r1 = Rotation.from_euler(

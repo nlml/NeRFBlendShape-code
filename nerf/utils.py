@@ -782,9 +782,9 @@ class Trainer(object):
             checkpoint_list = sorted(
                 glob.glob(f"{self.ckpt_path}/{self.name}_*.pth.tar")
             )
-            ckpt_indexes = [int(s.split('/')[-1].split('.')[0].split('_')[1]) for s in checkpoint_list]
-            checkpoint_list, _ = zip(*sorted(zip(checkpoint_list, ckpt_indexes), key=lambda x: x[1])) # order checkpoint_list by ckpt_indexes
             if checkpoint_list:
+                ckpt_indexes = [int(s.split('/')[-1].split('.')[0].split('_')[1]) for s in checkpoint_list]
+                checkpoint_list, _ = zip(*sorted(zip(checkpoint_list, ckpt_indexes), key=lambda x: x[1])) # order checkpoint_list by ckpt_indexes
                 checkpoint = checkpoint_list[-1]
                 self.log(f"[INFO] Latest checkpoint is {checkpoint}")
             else:
