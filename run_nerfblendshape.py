@@ -37,6 +37,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--no_pru", action="store_true", help="do not update density grid"
     )
+    parser.add_argument("--eye_pose_to_expr", action="store_true", help="")
+    parser.add_argument("--neck_pose_to_expr", action="store_true", help="")
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--hidden_dim", type=int, default=64)
     parser.add_argument("--geo_feat_dim", type=int, default=64)
@@ -61,6 +63,8 @@ if __name__ == "__main__":
         add_mean=opt.add_mean,
         basis_num=opt.basis_num,
         to_mem=opt.to_mem,
+        eyes_pose_to_expr=opt.eye_pose_to_expr,
+        neck_pose_to_expr=opt.neck_pose_to_expr
     )
 
     model = NeRFNetwork(
@@ -86,7 +90,9 @@ if __name__ == "__main__":
             downscale=1,
             add_mean=opt.add_mean,
             basis_num=opt.basis_num,
-            to_mem=opt.to_mem
+            to_mem=opt.to_mem,
+            eyes_pose_to_expr=opt.eye_pose_to_expr,
+            neck_pose_to_expr=opt.neck_pose_to_expr
         )
 
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True)

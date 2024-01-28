@@ -1,3 +1,19 @@
+# Experiments
+You might have to change `FLAME_PATH` inside every script
+## Train
+```
+./run_train_nersemble.sh <DATA_PATH> <OUTPUT_PATH> <GPU_ID>
+```
+## Val
+```
+./run_val.sh <DATA_PATH> <OUTPUT_PATH> <GPU_ID>
+```
+
+## Test
+```
+./run_test.sh <DATA_PATH> <OUTPUT_PATH> <GPU_ID>
+```
+
 # Reconstructing Personalized Semantic Facial NeRF Models From Monocular Video
 
 Official PyTorch implementation of the paper "Reconstructing Personalized Semantic Facial NeRF Models From Monocular Video". This repository contains code, data and released pretrained model.
