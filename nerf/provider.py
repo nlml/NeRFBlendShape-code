@@ -95,11 +95,16 @@ class NeRFDataset(Dataset):
         flame_model = FlameHead(300, 100)
         extra_max = None
         extra_min = None
+        self.timesteps = []
+        self.cam_indexes = []
 
         frames = transform_data['frames'][::downsample]
         self.num_frames = len(frames)
         for frame in frames:
             # load image size
+
+            self.timesteps.append(frame['timestep_index'])
+            self.cam_indexes.append(frame['camera_index'])
 
             # load intrinsics
             intrinsic = np.eye(3, dtype=np.float32)
@@ -315,7 +320,7 @@ class NeRFDataset(Dataset):
             "intrinsic": self.intrinsics[index],
             "index": index,
             "exp": self.exps[index],
-            "image_name": self.images_list[index].split('/')[-1]
+            "image_name": f'{self.timesteps[index]:05d}_{self.cam_indexes[index]:02d}.png'
         }
         results["H"] = str(self.H)
         results["W"] = str(self.W)
