@@ -320,7 +320,7 @@ class NeRFDataset(Dataset):
             "intrinsic": self.intrinsics[index],
             "index": index,
             "exp": self.exps[index],
-            "image_name": f'{self.timesteps[index]:05d}_{self.cam_indexes[index]:02d}.png'
+            "image_name": f'{index:05d}.png'
         }
         results["H"] = str(self.H)
         results["W"] = str(self.W)
