@@ -36,6 +36,7 @@ for k, data_split in data_splits.items():
 
     with open(os.path.join(args.dataset_path, f'transforms_nb_{k}.json'), "w") as f:
         json.dump(data_split, f)
+    print(f"Saved {k} split to {os.path.join(args.dataset_path, f'transforms_nb_{k}.json')}")
 
 
 len_val = "-" + str(len(data_val["frames"]))

@@ -25,11 +25,11 @@ num = opt.num
 exps = np.array(exps, dtype=np.float32)
 
 max_per = np.max(exps, axis=0)
-np.savetxt(
-    os.path.join(os.path.dirname(path), "max_" + str(num) + ".txt"), max_per[:num]
-)
+max_per_savepath = os.path.join(os.path.dirname(path), "max_" + str(num) + ".txt")
+np.savetxt(max_per_savepath, max_per[:num])
+print("saved to " + max_per_savepath)
 
 min_per = np.min(exps, axis=0)
-np.savetxt(
-    os.path.join(os.path.dirname(path), "min_" + str(num) + ".txt"), min_per[:num]
-)
+min_per_savepath = os.path.join(os.path.dirname(path), "min_" + str(num) + ".txt")
+np.savetxt(min_per_savepath, min_per[:num])
+print("saved to " + min_per_savepath)

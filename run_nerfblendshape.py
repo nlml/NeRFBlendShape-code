@@ -160,10 +160,10 @@ if __name__ == "__main__":
             valid_loader,
             200,
             max_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
+                opt.data_folder, f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
+                opt.data_folder, f"min_{opt.basis_num}.txt"
             ),
         )
 
@@ -181,10 +181,10 @@ if __name__ == "__main__":
         trainer.test(
             test_loader,
             max_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
+                opt.data_folder, f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
+                opt.data_folder, f"min_{opt.basis_num}.txt"
             ),
             save_path=os.path.join(opt.workspace, opt.mode)
         )
@@ -203,10 +203,10 @@ if __name__ == "__main__":
         trainer.test(
             test_loader,
             max_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"max_{opt.basis_num}.txt"
+                opt.data_folder, f"max_{opt.basis_num}.txt"
             ),
             min_path=os.path.join(
-                os.path.dirname(opt.data_folder), f"min_{opt.basis_num}.txt"
+                opt.data_folder, f"min_{opt.basis_num}.txt"
             ),
             save_path=os.path.join(opt.workspace, 'free_cam')
         )

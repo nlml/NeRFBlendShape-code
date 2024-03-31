@@ -1,4 +1,5 @@
-export FLAME_PATH=/home/user/code/nerf/flame/assets/flame
+export FLAME_PATH=/home/liam-schoneveld/gaussian_avatars_wrk/flame_model/assets/flame
+# export FLAME_PATH=/home/user/code/nerf/flame/assets/flame
 
 DATA_PATH=$1
 OUTFOLDER=$2

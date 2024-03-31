@@ -59,7 +59,7 @@ class NeRFDataset(Dataset):
         self.eyes_pose_to_expr = eyes_pose_to_expr
 
         # path: the json file path.
-        self.data_folder = data_folder
+        self.data_folder = os.path.realpath(data_folder)
         self.basis_num = basis_num
         self.add_mean = add_mean
         self.type = type
@@ -271,10 +271,12 @@ class NeRFDataset(Dataset):
                 if parsing_path is None:
                     # we have masks, load them up
                     mask_path = self.mask_paths_list[index]
+                    full_mask_path = os.path.join(self.data_folder, self.mask_paths_list[index])
                     mask = cv2.imread(
-                        os.path.join(self.data_folder, self.mask_paths_list[index]),
+                        full_mask_path,
                         cv2.IMREAD_UNCHANGED,
                     )
+                    assert mask is not None
                     mask = mask > 200
                 else:
                     seg = cv2.imread(

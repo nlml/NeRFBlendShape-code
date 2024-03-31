@@ -18,4 +18,4 @@ CUDA_VISIBLE_DEVICES=$GPUID python run_nerfblendshape.py\
     --data_folder $DATA_PATH \
     --workspace $OUTFOLDER \
     --fp16 --tcnn  --cuda_ray --basis_num $BASIS_NUM   --add_mean  --use_lpips   --mode train --to_mem \
-    --neck_pose_to_expr --eye_pose_to_expr
+    --neck_pose_to_expr --eye_pose_to_expr --bound 0.08
